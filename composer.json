@@ -1,0 +1,26 @@
+{
+    "name": "prm/forum-activity",
+    "description": "XenForo-style forum activity list on the homepage with sticky topics.",
+    "type": "flarum-extension",
+    "version": "0.1.0",
+    "license": "MIT",
+    "require": {
+        "flarum/core": "^1.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "Prm\\ForumActivity\\": "src/"
+        }
+    },
+    "extra": {
+        "flarum-extension": {
+            "title": "Forum Activity",
+            "category": "feature",
+            "icon": {
+                "name": "fas fa-list",
+                "backgroundColor": "#1f7a3c",
+                "color": "#fff"
+            }
+        }
+    }
+}
