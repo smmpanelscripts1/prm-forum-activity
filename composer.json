@@ -1,0 +1,47 @@
+{
+    "name": "prm/forum-activity",
+    "description": "XenForo-style forum activity list on the homepage with sticky topics.",
+    "type": "flarum-extension",
+    "version": "2.0.0",
+    "license": "MIT",
+    "require": {
+        "flarum/core": "^2.0.0-rc.8",
+        "flarum/tags": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Prm\\ForumActivity\\": "src/"
+        }
+    },
+    "extra": {
+        "flarum-extension": {
+            "title": "Forum Activity",
+            "category": "feature",
+            "icon": {
+                "name": "fas fa-list",
+                "backgroundColor": "#1f7a3c",
+                "color": "#fff"
+            }
+        },
+        "flarum-cli": {
+            "modules": {
+                "admin": true,
+                "forum": true,
+                "js": true,
+                "jsCommon": false,
+                "css": true,
+                "locale": true,
+                "gitConf": false,
+                "githubActions": false,
+                "prettier": false,
+                "typescript": false,
+                "bundlewatch": false,
+                "backendTesting": false,
+                "editorConfig": false,
+                "styleci": false
+            }
+        }
+    },
+    "minimum-stability": "beta",
+    "prefer-stable": true
+}

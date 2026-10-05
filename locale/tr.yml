@@ -1,0 +1,25 @@
+prm-forum-activity:
+  admin:
+    permissions:
+      feature_label: Konuları öne çıkar
+  forum:
+    title: Forum aktiviteleri
+    tabs:
+      latest: Yeni mesajlar
+      featured: Öne çıkanlar
+      newest: Yeni konular
+    columns:
+      topic: Konu
+      forum: Forumu
+      posts: Gönderim
+      last_poster: Son yazan
+    sticky_section: Sabit konular
+    normal_section: Normal konular
+    sticky_label: Sabit konu
+    empty: Gösterilecek konu yok.
+    load_more: Daha fazla yükle
+    discussion_controls:
+      feature: Öne çıkar
+      unfeature: Öne çıkarmayı kaldır
+    badge:
+      featured_tooltip: Öne çıkan konu
