@@ -56,9 +56,27 @@ function lastPostHref(discussion) {
   return app.route.discussion(discussion, number || undefined);
 }
 
+var TABS = ['latest', 'featured', 'newest', 'popular'];
+
+function resolveDefaultTab() {
+  if (typeof localStorage !== 'undefined') {
+    var saved = localStorage.getItem('prmForumActivityTab');
+    if (saved && TABS.indexOf(saved) !== -1) {
+      return saved;
+    }
+  }
+
+  var fromAdmin = app.forum.attribute('prmForumActivityDefaultTab');
+  if (fromAdmin && TABS.indexOf(fromAdmin) !== -1) {
+    return fromAdmin;
+  }
+
+  return 'latest';
+}
+
 class ForumActivity {
   oninit() {
-    this.tab = (typeof localStorage !== 'undefined' && localStorage.getItem('prmForumActivityTab')) || 'latest';
+    this.tab = resolveDefaultTab();
     this.collapsed = typeof localStorage !== 'undefined' && localStorage.getItem('prmForumActivityCollapsed') === '1';
     this.stickies = [];
     this.discussions = [];
@@ -114,7 +132,13 @@ class ForumActivity {
   }
 
   sortValue() {
-    return this.tab === 'newest' ? '-createdAt' : '-lastPostedAt';
+    if (this.tab === 'newest') {
+      return '-createdAt';
+    }
+    if (this.tab === 'popular') {
+      return '-commentCount';
+    }
+    return '-lastPostedAt';
   }
 
   baseFilter() {
@@ -229,6 +253,7 @@ class ForumActivity {
         this.tabButton('latest', 'fas fa-comments'),
         this.tabButton('featured', 'fas fa-star'),
         this.tabButton('newest', 'fas fa-comment'),
+        this.tabButton('popular', 'fas fa-fire'),
       ]),
       this.loading ? m(LoadingIndicator) : this.tableView(),
       this.loading ? null : m('div.ForumActivity-foot', [

@@ -21,6 +21,14 @@ return [
 
     new Extend\Locales(__DIR__.'/locale'),
 
+    (new Extend\Settings())
+        ->default('prm-forum-activity.default_tab', 'latest')
+        ->serializeToForum('prmForumActivityDefaultTab', 'prm-forum-activity.default_tab', function ($value) {
+            $allowed = ['latest', 'featured', 'newest', 'popular'];
+
+            return in_array($value, $allowed, true) ? $value : 'latest';
+        }),
+
     (new Extend\Model(Discussion::class))
         ->cast('is_featured', 'bool'),
 
