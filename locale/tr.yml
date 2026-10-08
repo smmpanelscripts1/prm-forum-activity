@@ -2,12 +2,32 @@ prm-forum-activity:
   admin:
     permissions:
       feature_label: Konuları öne çıkar
+    settings:
+      default_tab_label: Varsayılan aktivite sekmesi
+      default_tab_help: Henüz seçim yapmamış ziyaretçilerde ilk açılacak sekme.
+      default_tab_latest: Yeni mesajlar
+      default_tab_featured: Öne çıkanlar
+      default_tab_newest: Yeni konular
+      default_tab_popular: Popüler
+      color_mode_label: Vurgu rengi kaynağı
+      color_mode_help: Forum Activity sekme ve bölüm başlığı renklerini belirler.
+      color_mode_default: Yerleşik yeşil
+      color_mode_theme: Forum tema ana rengi
+      color_mode_tag: Aktif etiket rengi (yoksa tema)
+      color_mode_manual: Aşağıdaki manuel renk
+      accent_color_label: Manuel vurgu rengi
+      accent_color_help: Kaynak Manuel iken kullanılır. Örnek #2d8a4e.
+      color_rows_label: Satırları etiket rengine göre boya
+      color_rows_help: Her konunun ana etiket rengine göre hafif arka plan ve sol çizgi ekler.
+      sticky_highlight_label: Sticky / Stickiest satırları vurgula
+      sticky_highlight_help: Sticky, tag-sticky ve super-sticky konulara renkli sol çizgi verir. Stickiest yokken de güvenlidir.
   forum:
     title: Forum aktiviteleri
     tabs:
       latest: Yeni mesajlar
       featured: Öne çıkanlar
       newest: Yeni konular
+      popular: Popüler
     columns:
       topic: Konu
       forum: Forumu

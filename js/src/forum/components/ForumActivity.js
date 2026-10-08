@@ -7,12 +7,60 @@ import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Avatar from 'flarum/common/components/Avatar';
 import username from 'flarum/common/helpers/username';
 import humanTime from 'flarum/common/helpers/humanTime';
-import { t, currentTagSlug, discussionTags, forumTag, lastPostHref } from '../activityUtils';
+import {
+  t,
+  currentTagSlug,
+  forumTag,
+  lastPostHref,
+  hasStickiest,
+  isSuperSticky,
+  isTagSticky,
+  isCoreSticky,
+  isPinned,
+  pinRank,
+  tagStickyApplies,
+  resolveAccentColor,
+  hexToRgba,
+} from '../activityUtils';
+
+const TABS = ['latest', 'featured', 'newest', 'popular'];
+
+function resolveDefaultTab() {
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('prmForumActivityTab');
+    if (saved && TABS.indexOf(saved) !== -1) {
+      return saved;
+    }
+  }
+
+  const fromAdmin = app.forum.attribute('prmForumActivityDefaultTab');
+  if (fromAdmin && TABS.indexOf(fromAdmin) !== -1) {
+    return fromAdmin;
+  }
+
+  return 'latest';
+}
+
+function uniqueDiscussions(lists) {
+  const seen = {};
+  const out = [];
+  lists.forEach((list) => {
+    (list || []).forEach((discussion) => {
+      const id = discussion.id();
+      if (seen[id]) {
+        return;
+      }
+      seen[id] = true;
+      out.push(discussion);
+    });
+  });
+  return out;
+}
 
 export default class ForumActivity extends Component {
   oninit(vnode) {
     super.oninit(vnode);
-    this.tab = (typeof localStorage !== 'undefined' && localStorage.getItem('prmForumActivityTab')) || 'latest';
+    this.tab = resolveDefaultTab();
     this.collapsed = typeof localStorage !== 'undefined' && localStorage.getItem('prmForumActivityCollapsed') === '1';
     this.stickies = [];
     this.discussions = [];
@@ -68,7 +116,13 @@ export default class ForumActivity extends Component {
   }
 
   sortValue() {
-    return this.tab === 'newest' ? '-createdAt' : '-lastPostedAt';
+    if (this.tab === 'newest') {
+      return '-createdAt';
+    }
+    if (this.tab === 'popular') {
+      return '-commentCount';
+    }
+    return '-lastPostedAt';
   }
 
   baseFilter() {
@@ -81,7 +135,11 @@ export default class ForumActivity extends Component {
   }
 
   include() {
-    return 'user,lastPostedUser,tags,tags.parent';
+    let include = 'user,lastPostedUser,tags,tags.parent';
+    if (hasStickiest()) {
+      include += ',stickyTags';
+    }
+    return include;
   }
 
   load(reset) {
@@ -123,24 +181,75 @@ export default class ForumActivity extends Component {
   }
 
   applyPage(items, reset) {
-    const list = items || [];
-    this.hasMore = list.length >= this.limit;
+    const stickyIds = {};
+    (this.stickies || []).forEach((d) => {
+      stickyIds[d.id()] = true;
+    });
+
+    const list = (items || []).filter((discussion) => {
+      if (stickyIds[discussion.id()]) {
+        return false;
+      }
+      // Avoid duplicating Stickiest pins in the normal section.
+      if (this.tab !== 'featured' && isPinned(discussion)) {
+        return false;
+      }
+      return true;
+    });
+
+    this.hasMore = (items || []).length >= this.limit;
     if (reset) {
       this.discussions = list;
     } else {
       this.discussions = this.discussions.concat(list);
     }
-    this.offset = this.discussions.length;
+    this.offset = (reset ? 0 : this.offset) + (items || []).length;
   }
 
   fetchStickies() {
     const filter = this.baseFilter();
-    filter.sticky = '1';
-    return app.store.find('discussions', {
-      filter,
-      sort: this.sortValue(),
-      include: this.include(),
-      page: { limit: 50 },
+    const requests = [
+      app.store.find('discussions', {
+        filter: Object.assign({}, filter, { sticky: '1' }),
+        sort: this.sortValue(),
+        include: this.include(),
+        page: { limit: 50 },
+      }),
+    ];
+
+    if (hasStickiest()) {
+      requests.push(
+        app.store.find('discussions', {
+          filter: Object.assign({}, filter, { prmStickiest: '1' }),
+          sort: this.sortValue(),
+          include: this.include(),
+          page: { limit: 50 },
+        })
+      );
+
+      const showTagStickyInAll = !!app.forum.attribute('huseyinfiliz-stickiest.show_tag_sticky_in_all');
+      if (currentTagSlug() || showTagStickyInAll) {
+        requests.push(
+          app.store.find('discussions', {
+            filter: Object.assign({}, filter, { prmTagSticky: '1' }),
+            sort: this.sortValue(),
+            include: this.include(),
+            page: { limit: 50 },
+          })
+        );
+      }
+    }
+
+    return Promise.all(requests).then((results) => {
+      const merged = uniqueDiscussions(results).filter((discussion) => {
+        if (isSuperSticky(discussion) || isCoreSticky(discussion)) {
+          return true;
+        }
+        return tagStickyApplies(discussion);
+      });
+
+      merged.sort((a, b) => pinRank(b) - pinRank(a));
+      return merged;
     });
   }
 
@@ -159,9 +268,19 @@ export default class ForumActivity extends Component {
     });
   }
 
+  rootStyle() {
+    const accent = resolveAccentColor();
+    const section = hexToRgba(accent, 1) || accent;
+    return {
+      '--fa-accent': accent,
+      '--fa-accent-soft': hexToRgba(accent, 0.12) || accent,
+      '--fa-section-bg': section,
+    };
+  }
+
   view() {
     return (
-      <div className="ForumActivity">
+      <div className="ForumActivity" style={this.rootStyle()}>
         <div className="ForumActivity-head">
           <h2 className="ForumActivity-title">{t('title')}</h2>
           <Button
@@ -181,6 +300,7 @@ export default class ForumActivity extends Component {
         {this.tabButton('latest', 'fas fa-comments')}
         {this.tabButton('featured', 'fas fa-star')}
         {this.tabButton('newest', 'fas fa-comment')}
+        {this.tabButton('popular', 'fas fa-fire')}
       </div>,
       this.loading ? <LoadingIndicator /> : this.tableView(),
       this.loading ? null : (
@@ -263,17 +383,49 @@ export default class ForumActivity extends Component {
     );
   }
 
+  rowStyle(discussion) {
+    const style = {};
+    const colorRows = !!app.forum.attribute('prmForumActivityColorRows');
+    const stickyHighlight = app.forum.attribute('prmForumActivityStickyHighlight') !== false;
+    const tag = forumTag(discussion);
+
+    if (colorRows && tag && tag.color && tag.color()) {
+      const tint = hexToRgba(tag.color(), 0.08);
+      if (tint) {
+        style.background = tint;
+        style.boxShadow = 'inset 3px 0 0 ' + tag.color();
+      }
+    } else if (stickyHighlight) {
+      if (isSuperSticky(discussion)) {
+        style.boxShadow = 'inset 3px 0 0 #e74c3c';
+        style.background = 'rgba(231, 76, 60, 0.05)';
+      } else if (isTagSticky(discussion) && tagStickyApplies(discussion)) {
+        style.boxShadow = 'inset 3px 0 0 #3498db';
+        style.background = 'rgba(52, 152, 219, 0.05)';
+      } else if (isCoreSticky(discussion)) {
+        style.boxShadow = 'inset 3px 0 0 #f39c12';
+      }
+    }
+
+    return style;
+  }
+
   row(discussion, index, inStickySection) {
     const unread = discussion.isUnread && discussion.isUnread();
     const lastUser = discussion.lastPostedUser && discussion.lastPostedUser();
     const tag = forumTag(discussion);
     const locked = discussion.isLocked && discussion.isLocked();
-    const sticky = discussion.isSticky && discussion.isSticky();
+    const sticky = isCoreSticky(discussion);
     const featured = discussion.isFeatured && discussion.isFeatured();
     const replyCount = discussion.replyCount ? discussion.replyCount() : Math.max(0, (discussion.commentCount() || 1) - 1);
     const icons = [];
+    const stickiestIcon = app.forum.attribute('huseyinfiliz-stickiest.stickiest_icon') || 'fas fa-star';
 
-    if (sticky) {
+    if (isSuperSticky(discussion)) {
+      icons.push(<Icon name={stickiestIcon} className="ForumActivity-icon ForumActivity-icon--super" />);
+    } else if (isTagSticky(discussion) && tagStickyApplies(discussion)) {
+      icons.push(<Icon name="fas fa-tags" className="ForumActivity-icon ForumActivity-icon--tag" />);
+    } else if (sticky) {
       icons.push(<Icon name="fas fa-thumbtack" className="ForumActivity-icon" />);
     }
     if (locked) {
@@ -283,8 +435,15 @@ export default class ForumActivity extends Component {
       icons.push(<Icon name="fas fa-star" className="ForumActivity-icon" />);
     }
 
+    const className =
+      'ForumActivity-row' +
+      (unread ? ' is-unread' : '') +
+      (isSuperSticky(discussion) ? ' ForumActivity-row--superSticky' : '') +
+      (isTagSticky(discussion) && tagStickyApplies(discussion) ? ' ForumActivity-row--tagSticky' : '') +
+      (sticky && !isSuperSticky(discussion) ? ' ForumActivity-row--sticky' : '');
+
     return (
-      <tr className={'ForumActivity-row' + (unread ? ' is-unread' : '')} data-id={discussion.id()}>
+      <tr className={className} data-id={discussion.id()} style={this.rowStyle(discussion)}>
         <td className="ForumActivity-colIndex">{String(index)}</td>
         <td className="ForumActivity-colTopic">
           <div className="ForumActivity-topic">
