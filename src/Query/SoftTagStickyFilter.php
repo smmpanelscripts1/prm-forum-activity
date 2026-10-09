@@ -5,7 +5,6 @@ namespace Prm\ForumActivity\Query;
 use Flarum\Search\Database\DatabaseSearchState;
 use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Optional Stickiest tag-sticky filter.
@@ -22,7 +21,7 @@ class SoftTagStickyFilter implements FilterInterface
 
     public function filter(SearchState $state, string|array $value, bool $negate): void
     {
-        if (! $this->supported()) {
+        if (! $this->supported($state)) {
             if (! $negate) {
                 $state->getQuery()->whereRaw('0 = 1');
             }
@@ -33,11 +32,13 @@ class SoftTagStickyFilter implements FilterInterface
         $state->getQuery()->where('discussions.is_tag_sticky', ! $negate);
     }
 
-    protected function supported(): bool
+    protected function supported(SearchState $state): bool
     {
         try {
-            return Schema::hasColumn('discussions', 'is_tag_sticky')
-                && Schema::hasTable('discussion_sticky_tag');
+            $schema = $state->getQuery()->getConnection()->getSchemaBuilder();
+
+            return $schema->hasColumn('discussions', 'is_tag_sticky')
+                && $schema->hasTable('discussion_sticky_tag');
         } catch (\Throwable $e) {
             return false;
         }

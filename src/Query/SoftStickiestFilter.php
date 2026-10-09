@@ -5,7 +5,6 @@ namespace Prm\ForumActivity\Query;
 use Flarum\Search\Database\DatabaseSearchState;
 use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Optional Stickiest (super sticky) filter.
@@ -22,7 +21,7 @@ class SoftStickiestFilter implements FilterInterface
 
     public function filter(SearchState $state, string|array $value, bool $negate): void
     {
-        if (! $this->supported()) {
+        if (! $this->supported($state)) {
             if (! $negate) {
                 $state->getQuery()->whereRaw('0 = 1');
             }
@@ -33,10 +32,12 @@ class SoftStickiestFilter implements FilterInterface
         $state->getQuery()->where('discussions.is_stickiest', ! $negate);
     }
 
-    protected function supported(): bool
+    protected function supported(SearchState $state): bool
     {
         try {
-            return Schema::hasColumn('discussions', 'is_stickiest');
+            $schema = $state->getQuery()->getConnection()->getSchemaBuilder();
+
+            return $schema->hasColumn('discussions', 'is_stickiest');
         } catch (\Throwable $e) {
             return false;
         }

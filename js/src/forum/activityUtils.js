@@ -20,6 +20,45 @@ export function currentTagSlug() {
   return searchParams().tags || null;
 }
 
+export function currentPrefixSlug() {
+  return searchParams().prefix || null;
+}
+
+/** Soft compat with ernestdefoe/rubric — prefixes ship on the forum payload. */
+export function findRubricPrefix(discussion) {
+  if (!discussion || typeof discussion.attribute !== 'function') {
+    return null;
+  }
+  const id = discussion.attribute('rubricPrefixId');
+  if (id === null || id === undefined) {
+    return null;
+  }
+  const list = (app.forum && app.forum.attribute('rubricPrefixes')) || [];
+  return list.find((p) => String(p.id) === String(id)) || null;
+}
+
+export function rubricTextColor(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) {
+    return '#fff';
+  }
+  const n = parseInt(m[1], 16);
+  const channel = (c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const L = 0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255);
+  return L > 0.179 ? '#111827' : '#fff';
+}
+
+export function stickyTagIds(discussion) {
+  const ids = typeof discussion.attribute === 'function' ? discussion.attribute('stickyTagIds') : null;
+  if (!Array.isArray(ids)) {
+    return [];
+  }
+  return ids.map(String);
+}
+
 export function discussionTags(discussion) {
   if (!discussion.tags) {
     return [];
@@ -88,23 +127,21 @@ export function tagStickyApplies(discussion) {
     return showInAll;
   }
 
-  if (discussion.stickyTags && typeof discussion.stickyTags === 'function') {
-    const stickyTags = discussion.stickyTags() || [];
-    if (stickyTags.some((tag) => tag && tag.slug && tag.slug() === tagSlug)) {
-      return true;
-    }
+  const ids = stickyTagIds(discussion);
+  if (!ids.length || !app.store) {
+    return false;
   }
 
-  const ids = typeof discussion.attribute === 'function' ? discussion.attribute('stickyTagIds') : null;
-  if (Array.isArray(ids) && ids.length && app.store) {
-    return ids.some((id) => {
-      const tag = app.store.getById('tags', String(id));
-      return tag && tag.slug && tag.slug() === tagSlug;
-    });
+  const tags = app.store.all('tags') || [];
+  const current = tags.find((tag) => tag.slug && tag.slug() === tagSlug);
+  if (current) {
+    return ids.indexOf(String(current.id())) !== -1;
   }
 
-  // Fallback: treat as applicable on tag pages when Stickiest is present.
-  return true;
+  return ids.some((id) => {
+    const tag = app.store.getById('tags', String(id));
+    return tag && tag.slug && tag.slug() === tagSlug;
+  });
 }
 
 export function isPinned(discussion) {

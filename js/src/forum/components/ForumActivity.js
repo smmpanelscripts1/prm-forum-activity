@@ -10,6 +10,7 @@ import humanTime from 'flarum/common/helpers/humanTime';
 import {
   t,
   currentTagSlug,
+  currentPrefixSlug,
   forumTag,
   lastPostHref,
   hasStickiest,
@@ -19,6 +20,8 @@ import {
   isPinned,
   pinRank,
   tagStickyApplies,
+  findRubricPrefix,
+  rubricTextColor,
   resolveAccentColor,
   hexToRgba,
 } from '../activityUtils';
@@ -115,6 +118,25 @@ export default class ForumActivity extends Component {
     }
   }
 
+  filterByPrefix(slug) {
+    const routeName =
+      app.current && app.current.get('routeName') && ['index', 'tag'].indexOf(app.current.get('routeName')) !== -1
+        ? app.current.get('routeName')
+        : 'index';
+    const params = app.search && app.search.state ? Object.assign({}, app.search.state.params()) : {};
+    if (slug) {
+      params.prefix = slug;
+    } else {
+      delete params.prefix;
+    }
+    Object.keys(params).forEach((k) => {
+      if (params[k] === undefined || params[k] === null || params[k] === '') {
+        delete params[k];
+      }
+    });
+    m.route.set(app.route(routeName, params));
+  }
+
   sortValue() {
     if (this.tab === 'newest') {
       return '-createdAt';
@@ -131,15 +153,18 @@ export default class ForumActivity extends Component {
     if (tag) {
       filter.tag = tag;
     }
+    // Soft compat: ernestdefoe/rubric ?prefix=slug → filter[prefix]
+    const prefix = currentPrefixSlug();
+    if (prefix) {
+      filter.prefix = prefix;
+    }
     return filter;
   }
 
   include() {
-    let include = 'user,lastPostedUser,tags,tags.parent';
-    if (hasStickiest()) {
-      include += ',stickyTags';
-    }
-    return include;
+    // Stickiest only exposes stickyTagIds as an attribute — stickyTags is not a
+    // JSON:API relationship, so including it returns 400 on every request.
+    return 'user,lastPostedUser,tags,tags.parent';
   }
 
   load(reset) {
@@ -173,7 +198,10 @@ export default class ForumActivity extends Component {
         }
         m.redraw();
       })
-      .catch(() => {
+      .catch((err) => {
+        if (typeof console !== 'undefined' && console.error) {
+          console.error('[prm-forum-activity] load failed', err);
+        }
         this.loading = false;
         this.loadingMore = false;
         m.redraw();
@@ -208,11 +236,12 @@ export default class ForumActivity extends Component {
 
   fetchStickies() {
     const filter = this.baseFilter();
+    const include = this.include();
     const requests = [
       app.store.find('discussions', {
         filter: Object.assign({}, filter, { sticky: '1' }),
         sort: this.sortValue(),
-        include: this.include(),
+        include,
         page: { limit: 50 },
       }),
     ];
@@ -222,18 +251,38 @@ export default class ForumActivity extends Component {
         app.store.find('discussions', {
           filter: Object.assign({}, filter, { prmStickiest: '1' }),
           sort: this.sortValue(),
-          include: this.include(),
+          include,
           page: { limit: 50 },
         })
       );
 
+      const tagSlug = currentTagSlug();
       const showTagStickyInAll = !!app.forum.attribute('huseyinfiliz-stickiest.show_tag_sticky_in_all');
-      if (currentTagSlug() || showTagStickyInAll) {
+
+      if (tagSlug) {
+        // Stickiest's StickySearchMutator clears tag-sticky rows whenever another
+        // filter accompanies filter[tag], so filter[tag]+prmTagSticky is always empty.
+        // Use plain filter[tag] with default sort (no sort param) and pick pins client-side.
+        const tagFilter = { tag: tagSlug };
+        const prefix = currentPrefixSlug();
+        if (prefix) {
+          tagFilter.prefix = prefix;
+        }
+        requests.push(
+          app.store
+            .find('discussions', {
+              filter: tagFilter,
+              include,
+              page: { limit: 50 },
+            })
+            .then((list) => (list || []).filter((d) => isPinned(d)))
+        );
+      } else if (showTagStickyInAll) {
         requests.push(
           app.store.find('discussions', {
             filter: Object.assign({}, filter, { prmTagSticky: '1' }),
             sort: this.sortValue(),
-            include: this.include(),
+            include,
             page: { limit: 50 },
           })
         );
@@ -420,6 +469,7 @@ export default class ForumActivity extends Component {
     const replyCount = discussion.replyCount ? discussion.replyCount() : Math.max(0, (discussion.commentCount() || 1) - 1);
     const icons = [];
     const stickiestIcon = app.forum.attribute('huseyinfiliz-stickiest.stickiest_icon') || 'fas fa-star';
+    const rubric = findRubricPrefix(discussion);
 
     if (isSuperSticky(discussion)) {
       icons.push(<Icon name={stickiestIcon} className="ForumActivity-icon ForumActivity-icon--super" />);
@@ -448,6 +498,32 @@ export default class ForumActivity extends Component {
         <td className="ForumActivity-colTopic">
           <div className="ForumActivity-topic">
             {icons.length ? <span className="ForumActivity-icons">{icons}</span> : null}
+            {rubric ? (
+              <span
+                className="RubricLabel RubricLabel--list RubricLabel--link ForumActivity-rubric"
+                style={{
+                  '--rubric-color': rubric.color,
+                  '--rubric-text': rubricTextColor(rubric.color),
+                }}
+                title={rubric.name}
+                role="link"
+                tabindex="0"
+                onclick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  this.filterByPrefix(rubric.slug);
+                }}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.filterByPrefix(rubric.slug);
+                  }
+                }}
+              >
+                {rubric.icon ? <Icon name={rubric.icon} className="RubricLabel-icon" /> : null}
+                <span className="RubricLabel-text">{rubric.name}</span>
+              </span>
+            ) : null}
             <Link className="ForumActivity-titleLink" href={lastPostHref(discussion)}>
               {discussion.title()}
             </Link>
