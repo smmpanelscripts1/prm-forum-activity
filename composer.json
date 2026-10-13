@@ -2,7 +2,7 @@
     "name": "prm/forum-activity",
     "description": "XenForo-style forum activity list on the homepage with sticky topics.",
     "type": "flarum-extension",
-    "version": "2.1.1",
+    "version": "2.2.0",
     "license": "MIT",
     "require": {
         "flarum/core": "^2.0.0-rc.8",

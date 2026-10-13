@@ -24,6 +24,96 @@ export function currentPrefixSlug() {
   return searchParams().prefix || null;
 }
 
+export function currentTag() {
+  const slug = currentTagSlug();
+  if (!slug || !app.store) {
+    return null;
+  }
+  return (app.store.all('tags') || []).find((tag) => tag.slug && tag.slug() === slug) || null;
+}
+
+/** Tabs keyed like core sort keys; `popular` was renamed to core's `top` in 2.2. */
+const LEGACY_TABS = { popular: 'top' };
+const TAB_ORDER = ['latest', 'featured', 'newest', 'top', 'oldest', 'az', 'za'];
+const OWN_LABELS = ['latest', 'featured', 'newest', 'top'];
+const TAB_ICONS = {
+  latest: 'fas fa-comments',
+  featured: 'fas fa-star',
+  newest: 'fas fa-comment',
+  top: 'fas fa-fire',
+  oldest: 'fas fa-history',
+  az: 'fas fa-sort-alpha-down',
+  za: 'fas fa-sort-alpha-up',
+};
+
+export function normalizeTab(tab) {
+  return LEGACY_TABS[tab] || tab || null;
+}
+
+/** Core sort map plus any sorts other extensions registered (Trending, Upvotes, …). */
+export function sortMap() {
+  const map = Object.assign({}, (app.discussions && app.discussions.sortMap()) || {});
+  delete map.relevance;
+  return map;
+}
+
+export function disabledTabs() {
+  const raw = app.forum.attribute('prmForumActivityDisabledTabs');
+  return Array.isArray(raw) ? raw.map(normalizeTab) : [];
+}
+
+export function availableTabs() {
+  const keys = ['featured'].concat(Object.keys(sortMap()));
+  const rank = (key) => (TAB_ORDER.indexOf(key) === -1 ? TAB_ORDER.length : TAB_ORDER.indexOf(key));
+  const ordered = keys
+    .map((key, i) => ({ key, i }))
+    .sort((a, b) => rank(a.key) - rank(b.key) || a.i - b.i)
+    .map((item) => item.key);
+
+  const disabled = disabledTabs();
+  const enabled = ordered.filter((key) => disabled.indexOf(key) === -1);
+
+  return enabled.length ? enabled : ['latest'];
+}
+
+export function tabSort(tab) {
+  if (tab === 'featured') {
+    return '-lastPostedAt';
+  }
+  const sort = sortMap()[tab];
+  if (typeof sort === 'string' && sort) {
+    return sort;
+  }
+  if (sort && typeof sort === 'object' && sort.sort) {
+    return sort.sort;
+  }
+  return '-lastPostedAt';
+}
+
+export function tabIcon(tab) {
+  return TAB_ICONS[tab] || 'fas fa-sort';
+}
+
+export function tabLabel(tab) {
+  if (OWN_LABELS.indexOf(tab) !== -1) {
+    return t('tabs.' + tab);
+  }
+
+  const sort = sortMap()[tab];
+  if (sort && typeof sort === 'object' && sort.label) {
+    return sort.label;
+  }
+
+  const keys = ['core.forum.index_sort.' + tab + '_button', 'core.lib.index_sort.' + tab + '_button'];
+  for (let i = 0; i < keys.length; i++) {
+    const label = app.translator.trans(keys[i]);
+    if (label && label !== keys[i]) {
+      return label;
+    }
+  }
+  return tab;
+}
+
 /** Soft compat with ernestdefoe/rubric — prefixes ship on the forum payload. */
 export function findRubricPrefix(discussion) {
   if (!discussion || typeof discussion.attribute !== 'function') {

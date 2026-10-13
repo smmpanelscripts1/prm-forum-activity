@@ -28,10 +28,23 @@ return [
         ->default('prm-forum-activity.accent_color', '#2d8a4e')
         ->default('prm-forum-activity.color_rows', '0')
         ->default('prm-forum-activity.sticky_highlight', '1')
+        ->default('prm-forum-activity.disabled_tabs', '[]')
+        ->default('prm-forum-activity.tab_style', 'tabs')
+        ->serializeToForum('prmForumActivityTabStyle', 'prm-forum-activity.tab_style', function ($value) {
+            return $value === 'dropdown' ? 'dropdown' : 'tabs';
+        })
+        // Any discussion sort key is allowed (core + extensions); the forum falls back if it is not registered.
         ->serializeToForum('prmForumActivityDefaultTab', 'prm-forum-activity.default_tab', function ($value) {
-            $allowed = ['latest', 'featured', 'newest', 'popular'];
+            $value = $value === 'popular' ? 'top' : (string) $value;
 
-            return in_array($value, $allowed, true) ? $value : 'latest';
+            return preg_match('/^[a-zA-Z0-9_-]{1,40}$/', $value) ? $value : 'latest';
+        })
+        ->serializeToForum('prmForumActivityDisabledTabs', 'prm-forum-activity.disabled_tabs', function ($value) {
+            $list = json_decode((string) $value, true);
+
+            return is_array($list)
+                ? array_values(array_filter($list, fn ($key) => is_string($key) && preg_match('/^[a-zA-Z0-9_-]{1,40}$/', $key)))
+                : [];
         })
         ->serializeToForum('prmForumActivityColorMode', 'prm-forum-activity.color_mode', function ($value) {
             $allowed = ['default', 'theme', 'tag', 'manual'];

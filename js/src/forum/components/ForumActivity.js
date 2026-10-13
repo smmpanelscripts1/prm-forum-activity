@@ -1,6 +1,7 @@
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
+import Dropdown from 'flarum/common/components/Dropdown';
 import Link from 'flarum/common/components/Link';
 import Icon from 'flarum/common/components/Icon';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
@@ -24,24 +25,47 @@ import {
   rubricTextColor,
   resolveAccentColor,
   hexToRgba,
+  currentTag,
+  normalizeTab,
+  availableTabs,
+  tabSort,
+  tabIcon,
+  tabLabel,
 } from '../activityUtils';
 
-const TABS = ['latest', 'featured', 'newest', 'popular'];
+const STORAGE_KEY = 'prmForumActivityTab';
 
+function storageKey() {
+  const slug = currentTagSlug();
+  return slug ? STORAGE_KEY + ':tag:' + slug : STORAGE_KEY;
+}
+
+function readStored(key) {
+  return typeof localStorage !== 'undefined' ? normalizeTab(localStorage.getItem(key)) : null;
+}
+
+/**
+ * Order of precedence: ?sort= in the URL, the visitor's own pick for this tag,
+ * the tag's default sort (flarum/tags), the visitor's global pick, the admin default.
+ */
 function resolveDefaultTab() {
-  if (typeof localStorage !== 'undefined') {
-    const saved = localStorage.getItem('prmForumActivityTab');
-    if (saved && TABS.indexOf(saved) !== -1) {
-      return saved;
+  const tabs = availableTabs();
+  const valid = (tab) => (tab && tabs.indexOf(tab) !== -1 ? tab : null);
+
+  const fromUrl = valid(normalizeTab(m.route.param('sort')));
+  if (fromUrl) {
+    return fromUrl;
+  }
+
+  if (currentTagSlug()) {
+    const tag = currentTag();
+    const tagPick = valid(readStored(storageKey())) || valid(tag && tag.defaultSort ? tag.defaultSort() : null);
+    if (tagPick) {
+      return tagPick;
     }
   }
 
-  const fromAdmin = app.forum.attribute('prmForumActivityDefaultTab');
-  if (fromAdmin && TABS.indexOf(fromAdmin) !== -1) {
-    return fromAdmin;
-  }
-
-  return 'latest';
+  return valid(readStored(STORAGE_KEY)) || valid(normalizeTab(app.forum.attribute('prmForumActivityDefaultTab'))) || tabs[0];
 }
 
 function uniqueDiscussions(lists) {
@@ -106,7 +130,7 @@ export default class ForumActivity extends Component {
   setTab(tab) {
     this.tab = tab;
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('prmForumActivityTab', tab);
+      localStorage.setItem(storageKey(), tab);
     }
     this.load(true);
   }
@@ -138,13 +162,7 @@ export default class ForumActivity extends Component {
   }
 
   sortValue() {
-    if (this.tab === 'newest') {
-      return '-createdAt';
-    }
-    if (this.tab === 'popular') {
-      return '-commentCount';
-    }
-    return '-lastPostedAt';
+    return tabSort(this.tab);
   }
 
   baseFilter() {
@@ -329,7 +347,10 @@ export default class ForumActivity extends Component {
 
   view() {
     return (
-      <div className="ForumActivity" style={this.rootStyle()}>
+      <div
+        className={'ForumActivity' + (app.forum.attribute('prmForumActivityTabStyle') === 'dropdown' ? ' ForumActivity--dropdown' : '')}
+        style={this.rootStyle()}
+      >
         <div className="ForumActivity-head">
           <h2 className="ForumActivity-title">{t('title')}</h2>
           <Button
@@ -345,12 +366,11 @@ export default class ForumActivity extends Component {
 
   bodyView() {
     return [
-      <div className="ForumActivity-tabs">
-        {this.tabButton('latest', 'fas fa-comments')}
-        {this.tabButton('featured', 'fas fa-star')}
-        {this.tabButton('newest', 'fas fa-comment')}
-        {this.tabButton('popular', 'fas fa-fire')}
-      </div>,
+      app.forum.attribute('prmForumActivityTabStyle') === 'dropdown' ? (
+        <div className="ForumActivity-tabs ForumActivity-tabs--dropdown">{this.tabDropdown()}</div>
+      ) : (
+        <div className="ForumActivity-tabs">{availableTabs().map((tab) => this.tabButton(tab))}</div>
+      ),
       this.loading ? <LoadingIndicator /> : this.tableView(),
       this.loading ? null : (
         <div className="ForumActivity-foot">
@@ -366,14 +386,36 @@ export default class ForumActivity extends Component {
     ];
   }
 
-  tabButton(tab, iconName) {
+  tabDropdown() {
+    return (
+      <Dropdown
+        className="ForumActivity-sortDropdown"
+        buttonClassName="Button"
+        label={tabLabel(this.tab)}
+        icon={tabIcon(this.tab)}
+        accessibleToggleLabel={app.translator.trans('core.forum.index_sort.toggle_dropdown_accessible_label')}
+      >
+        {availableTabs().map((tab) => {
+          const active = this.tab === tab;
+          return (
+            <Button key={tab} icon={active ? 'fas fa-check' : true} active={active} onclick={() => this.setTab(tab)}>
+              {tabLabel(tab)}
+            </Button>
+          );
+        })}
+      </Dropdown>
+    );
+  }
+
+  tabButton(tab) {
     return (
       <Button
+        key={tab}
         className={'Button ForumActivity-tab' + (this.tab === tab ? ' is-active Button--primary' : '')}
-        icon={iconName}
+        icon={tabIcon(tab)}
         onclick={() => this.setTab(tab)}
       >
-        {t('tabs.' + tab)}
+        {tabLabel(tab)}
       </Button>
     );
   }

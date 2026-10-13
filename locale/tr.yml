@@ -4,11 +4,17 @@ prm-forum-activity:
       feature_label: Konuları öne çıkar
     settings:
       default_tab_label: Varsayılan aktivite sekmesi
-      default_tab_help: Henüz seçim yapmamış ziyaretçilerde ilk açılacak sekme.
+      default_tab_help: Henüz seçim yapmamış ziyaretçilerde ilk açılacak sekme. Etiket sayfalarında etiketin kendi varsayılan sıralaması (flarum/tags) geçerlidir.
       default_tab_latest: Yeni mesajlar
       default_tab_featured: Öne çıkanlar
       default_tab_newest: Yeni konular
-      default_tab_popular: Popüler
+      default_tab_top: Popüler
+      tab_style_label: Sekme görünümü
+      tab_style_help: Sıralama seçenekleri yan yana butonlar olarak ya da tek bir açılır menü butonu olarak gösterilsin.
+      tab_style_tabs: Yan yana butonlar
+      tab_style_dropdown: Tek buton (açılır menü)
+      tabs_label: Görünen sekmeler
+      tabs_help: Sıralama sekmelerini açıp kapatın. Başka eklentilerin eklediği sıralamalar (ör. Trending, Upvotes) burada otomatik görünür.
       color_mode_label: Vurgu rengi kaynağı
       color_mode_help: Forum Activity sekme ve bölüm başlığı renklerini belirler.
       color_mode_default: Yerleşik yeşil
@@ -27,7 +33,7 @@ prm-forum-activity:
       latest: Yeni mesajlar
       featured: Öne çıkanlar
       newest: Yeni konular
-      popular: Popüler
+      top: Popüler
     columns:
       topic: Konu
       forum: Forumu

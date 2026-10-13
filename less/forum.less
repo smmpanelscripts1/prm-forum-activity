@@ -46,6 +46,15 @@
   border-radius: 4px;
 }
 
+// The sort menu must be able to hang below a short (or loading) list.
+.ForumActivity--dropdown {
+  overflow: visible;
+}
+
+.ForumActivity-sortDropdown .Dropdown-menu {
+  z-index: 10;
+}
+
 .ForumActivity-tab.is-active,
 .ForumActivity-tab.Button--primary {
   background: var(--fa-accent, #2d8a4e);

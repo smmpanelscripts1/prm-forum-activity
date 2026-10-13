@@ -4,11 +4,17 @@ prm-forum-activity:
       feature_label: Feature discussions
     settings:
       default_tab_label: Default activity tab
-      default_tab_help: Which tab opens first for visitors who have not chosen one yet.
+      default_tab_help: Which tab opens first for visitors who have not chosen one yet. On tag pages the tag's own Default Sort (flarum/tags) wins.
       default_tab_latest: New posts
       default_tab_featured: Featured
       default_tab_newest: New topics
-      default_tab_popular: Popular
+      default_tab_top: Popular
+      tab_style_label: Tab layout
+      tab_style_help: Show the sort options as buttons side by side, or as a single dropdown button.
+      tab_style_tabs: Buttons side by side
+      tab_style_dropdown: Single dropdown button
+      tabs_label: Visible tabs
+      tabs_help: Turn sort tabs on or off. Sorts added by other extensions (e.g. Trending, Upvotes) appear here automatically.
       color_mode_label: Accent color source
       color_mode_help: Controls tab and section header colors in Forum Activity.
       color_mode_default: Built-in green
@@ -27,7 +33,7 @@ prm-forum-activity:
       latest: New posts
       featured: Featured
       newest: New topics
-      popular: Popular
+      top: Popular
     columns:
       topic: Topic
       forum: Forum
